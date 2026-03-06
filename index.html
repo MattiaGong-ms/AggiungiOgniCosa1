@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QUELLO CHE VUOI</title>
+    <style>
+        @keyframes pop { 0% { transform: scale(0) rotate(-10deg); } 100% { transform: scale(1) rotate(var(--rotation)); } }
+        
+        :root { 
+            --yellow: #FFD93D; --pink: #FF8AAE; --blue: #6BCBFF; 
+            --green: #6BCB77; --border: #000; 
+        }
+
+        body {
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            background: #f0f0f0;
+            background-image: radial-gradient(var(--pink) 0.5px, transparent 0.5px);
+            background-size: 25px 25px;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container { max-width: 1100px; margin: 0 auto; text-align: center; }
+        
+        .title-box {
+            background: var(--yellow);
+            border: 5px solid var(--border);
+            padding: 15px 40px;
+            display: inline-block;
+            box-shadow: 10px 10px 0 var(--border);
+            font-size: 2.5rem;
+            transform: rotate(-1deg);
+            margin-bottom: 30px;
+            text-transform: uppercase;
+        }
+
+        .input-panel {
+            background: white;
+            border: 5px solid var(--border);
+            border-radius: 25px;
+            padding: 25px;
+            margin-bottom: 40px;
+            box-shadow: 8px 8px 0 var(--blue);
+        }
+
+        .controls { display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; }
+
+        input[type="text"] {
+            padding: 15px;
+            border: 3px solid var(--border);
+            border-radius: 15px;
+            flex-grow: 1;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        .btn {
+            border: 3px solid var(--border);
+            padding: 12px 25px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 4px 4px 0 var(--border);
+            transition: 0.1s;
+            text-transform: uppercase;
+        }
+
+        .btn:hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--border); }
+        .btn:active { transform: translate(2px, 2px); box-shadow: none; }
+        .btn-add { background: var(--green); }
+        .btn-file { background: var(--pink); display: flex; align-items: center; }
+
+        .board { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); 
+            gap: 30px; 
+            padding: 20px;
+        }
+
+        .post-it {
+            --rotation: -2deg;
+            border: 4px solid var(--border);
+            padding: 20px;
+            border-radius: 5px; 
+            box-shadow: 8px 8px 0 rgba(0,0,0,0.1);
+            animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            position: relative;
+            transform: rotate(var(--rotation));
+            transition: 0.3s;
+            overflow: hidden;
+        }
+
+        .post-it:hover {
+            transform: scale(1.05) rotate(0deg) !important;
+            z-index: 10;
+            box-shadow: 12px 12px 0 var(--border);
+        }
+
+        .type-link { background: var(--blue); }
+        .type-file { background: var(--yellow); }
+        .type-text { background: white; }
+        .type-image { background: #fff; padding: 10px; }
+
+        .post-it img {
+            width: 100%;
+            border-radius: 5px;
+            border: 2px solid var(--border);
+            margin-bottom: 10px;
+        }
+
+        .date-tag {
+            font-size: 0.7rem;
+            opacity: 0.6;
+            display: block;
+            margin-top: 10px;
+            text-align: right;
+        }
+
+        .action-btn {
+            display: block;
+            margin-top: 10px;
+            background: #fff;
+            border: 2px solid var(--border);
+            padding: 8px;
+            text-decoration: none;
+            color: #000;
+            font-weight: bold;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .delete-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: #ff4757;
+            color: white;
+            border: 2px solid var(--border);
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="title-box">AGGIUNGI TUTTO QUELLO CHE VUOI!</div>
+
+    <div class="input-panel">
+        <div class="controls">
+            <input type="text" id="textInput" placeholder="Incolla un link, un'immagine (.jpg/png) o scrivi...">
+            <label class="btn btn-file">
+                📁 FILE <input type="file" id="fileInput" style="display: none;" onchange="handleFile(this)">
+            </label>
+            <button class="btn btn-add" onclick="handleText()">AGGIUNGI!</button>
+        </div>
+    </div>
+
+    <div class="board" id="board"></div>
+</div>
+
+<script>
+    const board = document.getElementById('board');
+    let items = JSON.parse(localStorage.getItem('cartoonData')) || [];
+
+    window.onload = () => items.forEach(item => renderPostIt(item));
+
+    function isImgUrl(url) {
+        return /\.(jpg|jpeg|png|webp|avif|gif)$/.test(url);
+    }
+
+    function handleText() {
+        const val = document.getElementById('textInput').value.trim();
+        if (!val) return;
+
+        const isUrl = val.startsWith('http');
+        const isImg = isImgUrl(val);
+        
+        const newItem = { 
+            id: Date.now(), 
+            content: isImg ? '' : val, 
+            type: isImg ? 'image' : (isUrl ? 'link' : 'text'), 
+            url: isUrl ? val : null,
+            date: new Date().toLocaleDateString('it-IT', {hour: '2-digit', minute:'2-digit'})
+        };
+
+        saveAndRender(newItem);
+        document.getElementById('textInput').value = '';
+    }
+
+    function handleFile(input) {
+        const file = input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const isImg = file.type.startsWith('image/');
+            const newItem = { 
+                id: Date.now(), 
+                content: isImg ? '' : `File: ${file.name}`, 
+                type: isImg ? 'image' : 'file', 
+                url: e.target.result, 
+                fileName: file.name,
+                date: new Date().toLocaleDateString('it-IT', {hour: '2-digit', minute:'2-digit'})
+            };
+            saveAndRender(newItem);
+        };
+        reader.readAsDataURL(file);
+        input.value = '';
+    }
+
+    function saveAndRender(item) {
+        items.unshift(item);
+        localStorage.setItem('cartoonData', JSON.stringify(items));
+        renderPostIt(item, true);
+    }
+
+    function renderPostIt(item, isNew = false) {
+        const div = document.createElement('div');
+        const randomRot = (Math.random() * 6 - 3).toFixed(2); 
+        div.className = `post-it type-${item.type}`;
+        div.style.setProperty('--rotation', `${randomRot}deg`);
+        div.dataset.id = item.id;
+        
+        let contentHtml = '';
+        if (item.type === 'image') contentHtml = `<img src="${item.url}" alt="clip">`;
+        if (item.type === 'link') contentHtml = `<p>🔗 ${item.content}</p><a href="${item.url}" target="_blank" class="action-btn">VAI AL SITO 🌐</a>`;
+        if (item.type === 'file') contentHtml = `<p>📄 ${item.content}</p><a href="${item.url}" download="${item.fileName}" class="action-btn">SCARICA ⬇️</a>`;
+        if (item.type === 'text') contentHtml = `<p>📝 ${item.content}</p>`;
+
+        div.innerHTML = `
+            <button class="delete-btn" onclick="deleteItem(${item.id})">×</button>
+            ${contentHtml}
+            <span class="date-tag">${item.date}</span>
+        `;
+        
+        isNew ? board.prepend(div) : board.appendChild(div);
+    }
+
+    function deleteItem(id) {
+        if(!confirm("Vuoi davvero eliminare questo ricordo?")) return;
+        items = items.filter(i => i.id !== id);
+        localStorage.setItem('cartoonData', JSON.stringify(items));
+        document.querySelector(`[data-id="${id}"]`).remove();
+    }
+</script>
+
+</body>
+</html>
+
