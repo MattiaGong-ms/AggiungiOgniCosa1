@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QUELLO CHE VUOI</title>
+    <title>AGGIUNGI TUTTO</title>
     <style>
         @keyframes pop { 0% { transform: scale(0) rotate(-10deg); } 100% { transform: scale(1) rotate(var(--rotation)); } }
         
@@ -82,13 +82,13 @@
             --rotation: -2deg;
             border: 4px solid var(--border);
             padding: 20px;
-            border-radius: 5px; 
+            border-radius: 5px;
             box-shadow: 8px 8px 0 rgba(0,0,0,0.1);
             animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
             position: relative;
             transform: rotate(var(--rotation));
             transition: 0.3s;
-            overflow: hidden;
+            word-wrap: break-word;
         }
 
         .post-it:hover {
@@ -100,20 +100,30 @@
         .type-link { background: var(--blue); }
         .type-file { background: var(--yellow); }
         .type-text { background: white; }
-        .type-image { background: #fff; padding: 10px; }
+        .type-image { background: #fff; }
 
         .post-it img {
             width: 100%;
             border-radius: 5px;
             border: 2px solid var(--border);
+            margin-top: 10px;
+        }
+
+        .item-title {
+            display: block;
+            font-weight: 900;
+            text-transform: uppercase;
+            border-bottom: 2px dashed var(--border);
             margin-bottom: 10px;
+            padding-bottom: 5px;
+            font-size: 1.1rem;
         }
 
         .date-tag {
             font-size: 0.7rem;
             opacity: 0.6;
             display: block;
-            margin-top: 10px;
+            margin-top: 15px;
             text-align: right;
         }
 
@@ -128,6 +138,7 @@
             font-weight: bold;
             border-radius: 8px;
             font-size: 0.9rem;
+            text-align: center;
         }
 
         .delete-btn {
@@ -142,7 +153,6 @@
             height: 25px;
             cursor: pointer;
             font-weight: bold;
-            line-height: 1;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -152,11 +162,11 @@
 <body>
 
 <div class="container">
-    <div class="title-box">AGGIUNGI TUTTO QUELLO CHE VUOI!</div>
+    <div class="title-box">AGGIUNGI TUTTO QUELLO CHE VUOI</div>
 
     <div class="input-panel">
         <div class="controls">
-            <input type="text" id="textInput" placeholder="Incolla un link, un'immagine (.jpg/png) o scrivi...">
+            <input type="text" id="textInput" placeholder="Inserisci testo, link o URL immagine...">
             <label class="btn btn-file">
                 📁 FILE <input type="file" id="fileInput" style="display: none;" onchange="handleFile(this)">
             </label>
@@ -169,27 +179,38 @@
 
 <script>
     const board = document.getElementById('board');
+    // Recupera i dati salvati o crea un array vuoto
     let items = JSON.parse(localStorage.getItem('cartoonData')) || [];
 
-    window.onload = () => items.forEach(item => renderPostIt(item));
+    // Mostra gli elementi salvati all'apertura della pagina
+    window.onload = () => {
+        items.forEach(item => renderPostIt(item));
+    };
 
     function isImgUrl(url) {
         return /\.(jpg|jpeg|png|webp|avif|gif)$/.test(url);
+    }
+
+    function askForName(defaultName) {
+        const name = prompt("Che nome vuoi dare a questo elemento?", defaultName);
+        return name ? name : defaultName;
     }
 
     function handleText() {
         const val = document.getElementById('textInput').value.trim();
         if (!val) return;
 
+        const itemName = askForName("Nuovo Memo");
         const isUrl = val.startsWith('http');
         const isImg = isImgUrl(val);
         
         const newItem = { 
             id: Date.now(), 
+            title: itemName,
             content: isImg ? '' : val, 
             type: isImg ? 'image' : (isUrl ? 'link' : 'text'), 
             url: isUrl ? val : null,
-            date: new Date().toLocaleDateString('it-IT', {hour: '2-digit', minute:'2-digit'})
+            date: new Date().toLocaleString('it-IT')
         };
 
         saveAndRender(newItem);
@@ -199,16 +220,20 @@
     function handleFile(input) {
         const file = input.files[0];
         if (!file) return;
+
+        const itemName = askForName(file.name);
         const reader = new FileReader();
+        
         reader.onload = (e) => {
             const isImg = file.type.startsWith('image/');
             const newItem = { 
                 id: Date.now(), 
-                content: isImg ? '' : `File: ${file.name}`, 
+                title: itemName,
+                content: isImg ? '' : `File caricato: ${file.name}`, 
                 type: isImg ? 'image' : 'file', 
                 url: e.target.result, 
                 fileName: file.name,
-                date: new Date().toLocaleDateString('it-IT', {hour: '2-digit', minute:'2-digit'})
+                date: new Date().toLocaleString('it-IT')
             };
             saveAndRender(newItem);
         };
@@ -224,16 +249,17 @@
 
     function renderPostIt(item, isNew = false) {
         const div = document.createElement('div');
-        const randomRot = (Math.random() * 6 - 3).toFixed(2); 
+        const randomRot = (Math.random() * 6 - 3).toFixed(2);
         div.className = `post-it type-${item.type}`;
         div.style.setProperty('--rotation', `${randomRot}deg`);
         div.dataset.id = item.id;
         
-        let contentHtml = '';
-        if (item.type === 'image') contentHtml = `<img src="${item.url}" alt="clip">`;
-        if (item.type === 'link') contentHtml = `<p>🔗 ${item.content}</p><a href="${item.url}" target="_blank" class="action-btn">VAI AL SITO 🌐</a>`;
-        if (item.type === 'file') contentHtml = `<p>📄 ${item.content}</p><a href="${item.url}" download="${item.fileName}" class="action-btn">SCARICA ⬇️</a>`;
-        if (item.type === 'text') contentHtml = `<p>📝 ${item.content}</p>`;
+        let contentHtml = `<span class="item-title">${item.title}</span>`;
+        
+        if (item.type === 'image') contentHtml += `<img src="${item.url}" alt="preview">`;
+        else if (item.type === 'link') contentHtml += `<p>${item.content}</p><a href="${item.url}" target="_blank" class="action-btn">APRI LINK 🌐</a>`;
+        else if (item.type === 'file') contentHtml += `<p>${item.content}</p><a href="${item.url}" download="${item.fileName}" class="action-btn">SCARICA ⬇️</a>`;
+        else contentHtml += `<p>${item.content}</p>`;
 
         div.innerHTML = `
             <button class="delete-btn" onclick="deleteItem(${item.id})">×</button>
@@ -245,7 +271,7 @@
     }
 
     function deleteItem(id) {
-        if(!confirm("Vuoi davvero eliminare questo ricordo?")) return;
+        if(!confirm("Vuoi eliminare definitivamente questo elemento?")) return;
         items = items.filter(i => i.id !== id);
         localStorage.setItem('cartoonData', JSON.stringify(items));
         document.querySelector(`[data-id="${id}"]`).remove();
@@ -254,4 +280,3 @@
 
 </body>
 </html>
-
